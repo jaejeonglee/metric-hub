@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto";
+import AppError from "../class/AppError.js";
 
 export default async function registerRoute(fastify, options) {
   const generatePassword = () => randomBytes(8).toString("hex");
@@ -9,9 +10,11 @@ export default async function registerRoute(fastify, options) {
       const { hostname, ip, port = 9100 } = request.body;
 
       if (!hostname || !ip) {
-        return reply
-          .status(400)
-          .send({ error: "hostname and ip are required" });
+        throw new AppError(
+          "hostname and ip are required",
+          400,
+          "VALIDATION_ERROR"
+        );
       }
 
       try {
@@ -38,12 +41,7 @@ export default async function registerRoute(fastify, options) {
           password: newPassword,
         });
       } catch (error) {
-        fastify.log.error(
-          error.response ? JSON.stringify(error.response.data) : error.message
-        );
-        reply
-          .status(500)
-          .send({ error: "Internal Server Error", details: error.message });
+        throw error;
       }
     },
   });

@@ -3,29 +3,19 @@ import config from "./config/index.js";
 import authPlugin from "./plugins/auth.js";
 import grafanaPlugin from "./plugins/grafana.js";
 import prometheusPlugin from "./plugins/prometheus.js";
+import responseHandlerPlugin from "./plugins/responseHandler.js";
+import loggerPlugin from "./plugins/logger.js";
 import mainRouter from "./routes/index.js";
 
 // Setup instance (Fastify)
 const app = Fastify({
-  logger: {
-    transport: {
-      target: "pino-pretty",
-      options: {
-        colorize: true,
-        translateTime: "SYS:HH:MM:ss.l",
-        ignore: "pid,hostname,reqId,req.host,req.remoteAddress,req.remotePort",
-      },
-    },
-    customProps: (req, reply) => {
-      return {
-        clientIp: req.ip,
-      };
-    },
-  },
+  logger: false,
   trustProxy: true,
 });
 
 // Plugin injection
+app.register(responseHandlerPlugin);
+app.register(loggerPlugin);
 app.register(authPlugin, { config });
 app.register(grafanaPlugin, { config });
 app.register(prometheusPlugin, { config });
