@@ -12,9 +12,17 @@ const app = Fastify({
       target: "pino-pretty",
       options: {
         colorize: true,
+        translateTime: "SYS:HH:MM:ss.l",
+        ignore: "pid,hostname,reqId,req.host,req.remoteAddress,req.remotePort",
       },
     },
+    customProps: (req, reply) => {
+      return {
+        clientIp: req.ip,
+      };
+    },
   },
+  trustProxy: true,
 });
 
 // Plugin injection
