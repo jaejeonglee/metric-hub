@@ -1,4 +1,5 @@
 import fp from "fastify-plugin";
+import AppError from "../class/AppError.js";
 
 /**
  * Response Handler Plugin
