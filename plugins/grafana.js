@@ -16,8 +16,11 @@ async function grafanaPlugin(fastify, options) {
 
   const grafanaApi = axios.create({
     baseURL: config.grafana.baseUrl,
+    auth: {
+      username: config.grafana.adminUser,
+      password: config.grafana.adminPass,
+    },
     headers: {
-      Authorization: `Bearer ${config.grafana.apiKey}`,
       "Content-Type": "application/json",
     },
   });

@@ -17,11 +17,12 @@ const config = {
 
   // Grafana
   grafana: {
-    apiKey: process.env.GRAFANA_API_KEY,
     baseUrl: process.env.GRAFANA_BASE_URL,
     templatePath:
       process.env.GRAFANA_TEMPLATE_PATH ||
       path.join(__dirname, "../template.json"),
+    adminUser: process.env.GRAFANA_ADMIN_USER,
+    adminPass: process.env.GRAFANA_ADMIN_PASS,
   },
 
   // Prometheus
@@ -36,8 +37,14 @@ const config = {
   },
 };
 
-if (!config.hubApiSecretKey || !config.grafana.apiKey) {
-  console.error("CRITICAL ERROR: Missing required config values.");
+if (
+  !config.hubApiSecretKey ||
+  !config.grafana.adminUser ||
+  !config.grafana.adminPass
+) {
+  console.error(
+    "CRITICAL ERROR: Missing required config values (KEY, GRAFANA_ADMIN_USER or PASS)."
+  );
   process.exit(1);
 }
 
