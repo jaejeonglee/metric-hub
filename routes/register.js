@@ -7,37 +7,45 @@ export default async function registerRoute(fastify, options) {
   fastify.post("/register-node", {
     preHandler: [fastify.auth.verifyApiKey],
     handler: async (request, reply) => {
-      const { hostname, ip, port = 9100 } = request.body;
+      const { userName, ip, port = 9100 } = request.body;
 
-      if (!hostname || !ip) {
+      if (!userName || !ip) {
         throw new AppError(
-          "hostname and ip are required",
+          "userName and ip are required",
           400,
           "VALIDATION_ERROR"
         );
       }
 
+      if (await fastify.prometheus.doesTargetExist(userName)) {
+        throw new AppError(
+          `User ${userName} is already registered.`,
+          409,
+          "DUPLICATE_USER"
+        );
+      }
+
       try {
-        const instanceIdentifier = `${hostname}:${port}`;
+        const instanceIdentifier = `${userName}:${port}`;
         const newPassword = generatePassword();
 
-        await fastify.prometheus.addTarget(hostname, ip, port);
+        await fastify.prometheus.addTarget(userName, ip, port);
 
         const newUserId = await fastify.grafana.createUser(
-          hostname,
+          userName,
           newPassword
         );
         const dash = await fastify.grafana.createDashboard(
-          hostname,
+          userName,
           instanceIdentifier
         );
         await fastify.grafana.setDashboardPermissions(dash.uid, newUserId);
 
         reply.status(201).send({
           success: true,
-          message: `${hostname} registered successfully.`,
+          message: `${userName} registered successfully.`,
           dashboardUrl: dash.url,
-          username: `user-${hostname}`,
+          username: `${userName}`,
           password: newPassword,
         });
       } catch (error) {
