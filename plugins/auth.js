@@ -29,6 +29,14 @@ async function authPlugin(fastify, options) {
         "UNAUTHORIZED"
       );
     }
+
+    if (!request.user || request.user.role !== "admin") {
+      throw new AppError(
+        "Forbidden access (Admin role required)",
+        403,
+        "FORBIDDEN"
+      );
+    }
   };
 
   fastify.decorate("auth", {
