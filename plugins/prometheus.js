@@ -42,7 +42,7 @@ async function prometheusPlugin(fastify, options) {
     }
 
     const alreadyExists = targetsJson.some(
-      (target) => target.labels?.hostname === hostname
+      (target) => target.labels?.hostname === userName
     );
 
     if (!alreadyExists) {
@@ -51,9 +51,9 @@ async function prometheusPlugin(fastify, options) {
         labels: { hostname: userName },
       });
       await writeFile(targetsFilePath, JSON.stringify(targetsJson, null, 2));
-      fastify.log.info(`Added ${hostname} to Prometheus targets.`);
+      fastify.log.info(`Added ${userName} to Prometheus targets.`);
     } else {
-      fastify.log.info(`${hostname} already exists in Prometheus. Skipping.`);
+      fastify.log.info(`${userName} already exists in Prometheus. Skipping.`);
     }
   }
 }
