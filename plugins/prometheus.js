@@ -11,6 +11,7 @@ async function prometheusPlugin(fastify, options) {
   fastify.decorate("prometheus", {
     doesTargetExist,
     addTarget,
+    removeTarget,
   });
 
   /*
@@ -54,6 +55,31 @@ async function prometheusPlugin(fastify, options) {
       fastify.log.info(`Added ${userName} to Prometheus targets.`);
     } else {
       fastify.log.info(`${userName} already exists in Prometheus. Skipping.`);
+    }
+  }
+  /*
+   * Remove target from Prometheus targets file
+   */
+  async function removeTarget(userName) {
+    let targetsJson = [];
+    try {
+      const targetsFile = await readFile(targetsFilePath, "utf-8");
+      targetsJson = JSON.parse(targetsFile);
+    } catch (readErr) {
+      fastify.log.warn(`Could not read ${targetsFilePath}. File may be empty.`);
+      return; // Nothing to remove
+    }
+
+    const newTargetsJson = targetsJson.filter(
+      (target) => target.labels?.hostname !== userName
+    );
+
+    // check if a target was actually removed before writing
+    if (newTargetsJson.length < targetsJson.length) {
+      await writeFile(targetsFilePath, JSON.stringify(newTargetsJson, null, 2));
+      fastify.log.info(`Removed ${userName} from Prometheus targets.`);
+    } else {
+      fastify.log.warn(`Target ${userName} not found in Prometheus. Skipping.`);
     }
   }
 }
