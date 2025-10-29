@@ -14,73 +14,86 @@ async function prometheusPlugin(fastify, options) {
     removeTarget,
   });
 
+  async function loadTargets() {
+    try {
+      const targetsFile = await readFile(targetsFilePath, "utf-8");
+      return JSON.parse(targetsFile);
+    } catch (error) {
+      if (error.code !== "ENOENT") {
+        fastify.log.warn(
+          `Could not read ${targetsFilePath}, starting new list. (${error.message})`
+        );
+      }
+      return [];
+    }
+  }
+
+  async function persistTargets(targetsJson) {
+    await writeFile(targetsFilePath, JSON.stringify(targetsJson, null, 2));
+  }
+
   /*
    * Check if target already exists
    */
   async function doesTargetExist(userName) {
-    let targetsJson = [];
-    try {
-      const targetsFile = await readFile(targetsFilePath, "utf-8");
-      targetsJson = JSON.parse(targetsFile);
-    } catch (readErr) {
-      return false;
-    }
-
+    const targetsJson = await loadTargets();
     return targetsJson.some((target) => target.labels?.hostname === userName);
   }
 
   /*
-   * Add target to Prometheus targets file
+   * Add or update target in Prometheus targets file
    */
   async function addTarget(userName, ip, port) {
-    let targetsJson = [];
-    try {
-      const targetsFile = await readFile(targetsFilePath, "utf-8");
-      targetsJson = JSON.parse(targetsFile);
-    } catch (readErr) {
-      fastify.log.warn(`Could not read ${targetsFilePath}, starting new list.`);
-      targetsJson = [];
-    }
+    const targetsJson = await loadTargets();
+    const targetAddress = `${ip}:${port}`;
 
-    const alreadyExists = targetsJson.some(
+    const existingIndex = targetsJson.findIndex(
       (target) => target.labels?.hostname === userName
     );
 
-    if (!alreadyExists) {
+    if (existingIndex === -1) {
       targetsJson.push({
-        targets: [`${ip}:${port}`],
+        targets: [targetAddress],
         labels: { hostname: userName },
       });
-      await writeFile(targetsFilePath, JSON.stringify(targetsJson, null, 2));
+      await persistTargets(targetsJson);
       fastify.log.info(`Added ${userName} to Prometheus targets.`);
-    } else {
-      fastify.log.info(`${userName} already exists in Prometheus. Skipping.`);
+      return "created";
     }
+
+    const existingTargets = targetsJson[existingIndex].targets || [];
+    if (existingTargets[0] === targetAddress) {
+      fastify.log.info(
+        `${userName} already registered in Prometheus with same target.`
+      );
+      return "unchanged";
+    }
+
+    targetsJson[existingIndex].targets = [targetAddress];
+    await persistTargets(targetsJson);
+    fastify.log.info(
+      `Updated Prometheus target for ${userName} to ${targetAddress}.`
+    );
+    return "updated";
   }
+
   /*
    * Remove target from Prometheus targets file
    */
   async function removeTarget(userName) {
-    let targetsJson = [];
-    try {
-      const targetsFile = await readFile(targetsFilePath, "utf-8");
-      targetsJson = JSON.parse(targetsFile);
-    } catch (readErr) {
-      fastify.log.warn(`Could not read ${targetsFilePath}. File may be empty.`);
-      return; // Nothing to remove
-    }
+    const targetsJson = await loadTargets();
 
     const newTargetsJson = targetsJson.filter(
       (target) => target.labels?.hostname !== userName
     );
 
-    // check if a target was actually removed before writing
-    if (newTargetsJson.length < targetsJson.length) {
-      await writeFile(targetsFilePath, JSON.stringify(newTargetsJson, null, 2));
-      fastify.log.info(`Removed ${userName} from Prometheus targets.`);
-    } else {
+    if (newTargetsJson.length === targetsJson.length) {
       fastify.log.warn(`Target ${userName} not found in Prometheus. Skipping.`);
+      return;
     }
+
+    await persistTargets(newTargetsJson);
+    fastify.log.info(`Removed ${userName} from Prometheus targets.`);
   }
 }
 

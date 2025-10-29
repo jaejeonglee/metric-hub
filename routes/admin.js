@@ -1,4 +1,5 @@
 import AppError from "../class/AppError.js";
+import { sanitizeUserName } from "../utils/userName.js";
 
 export default async function adminRoute(fastify, options) {
   const { config } = options;
@@ -8,6 +9,14 @@ export default async function adminRoute(fastify, options) {
    */
   fastify.post("/login", {}, async (request, reply) => {
     const { username, password } = request.body;
+
+    if (!username || !password) {
+      throw new AppError(
+        "username and password are required",
+        400,
+        "VALIDATION_ERROR"
+      );
+    }
 
     if (
       username !== config.admin.username ||
@@ -35,12 +44,8 @@ export default async function adminRoute(fastify, options) {
   fastify.delete("/user/:userName", {
     preHandler: [fastify.auth.verifyAdmin],
     handler: async (request, reply) => {
-      const { userName } = request.params;
-
-      const adminUser = request.user;
-      fastify.log.info(
-        `Admin request (by ${adminUser.username}) received to delete user: ${userName}`
-      );
+      const rawUserName = request.params.userName;
+      const userName = sanitizeUserName(rawUserName);
 
       if (!userName) {
         throw new AppError(
@@ -50,13 +55,21 @@ export default async function adminRoute(fastify, options) {
         );
       }
 
+      const adminUser = request.user;
+      fastify.log.info(
+        `Admin request (by ${adminUser.username}) received to delete user: ${userName}`
+      );
+
       try {
         await fastify.grafana.deleteUserAndDashboard(userName);
         await fastify.prometheus.removeTarget(userName);
 
-        return reply.success({
-          message: `User '${userName}' deleted.`,
-        });
+        return reply.success(
+          {
+            message: `User '${userName}' deleted.`,
+          },
+          200
+        );
       } catch (error) {
         throw error;
       }
