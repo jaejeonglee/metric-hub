@@ -15,7 +15,6 @@ const app = Fastify({
 });
 
 // Plugin injection
-
 app.register(loggerPlugin);
 app.register(responseHandlerPlugin);
 app.register(fastifyJwt, {
@@ -24,7 +23,7 @@ app.register(fastifyJwt, {
 app.register(authPlugin, { config });
 app.register(grafanaPlugin, { config });
 app.register(prometheusPlugin, { config });
-app.register(mainRouter, { prefix: "/api" });
+app.register(mainRouter, { prefix: "/api", config });
 
 const start = async () => {
   try {
