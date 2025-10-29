@@ -7,14 +7,21 @@ export default async function registerRoute(fastify, options) {
   fastify.post("/register-node", {
     preHandler: [fastify.auth.verifyApiKey],
     handler: async (request, reply) => {
-      const { userName, ip, port = 9100 } = request.body;
+      const { ip, port = 9100 } = request.body;
 
-      if (!userName || !ip) {
-        throw new AppError(
-          "userName and ip are required",
-          400,
-          "VALIDATION_ERROR"
-        );
+      const rawUserName = request.body.userName;
+
+      if (!rawUserName || typeof rawUserName !== "string") {
+        throw new AppError("userName is required", 400, "VALIDATION_ERROR");
+      }
+
+      const userName = rawUserName
+        .replace(/\s+/g, "")
+        .replace(/[^a-zA-Z0-9-]/g, "")
+        .toLowerCase();
+
+      if (!userName) {
+        throw new AppError("Invalid userName format", 400, "VALIDATION_ERROR");
       }
 
       if (await fastify.prometheus.doesTargetExist(userName)) {
@@ -33,6 +40,7 @@ export default async function registerRoute(fastify, options) {
 
         const newUserId = await fastify.grafana.createUser(
           userName,
+          ip,
           newPassword
         );
         const dash = await fastify.grafana.createDashboard(
@@ -41,13 +49,15 @@ export default async function registerRoute(fastify, options) {
         );
         await fastify.grafana.setDashboardPermissions(dash.uid, newUserId);
 
-        reply.status(201).send({
-          success: true,
-          message: `${userName} registered successfully.`,
-          dashboardUrl: dash.url,
-          username: `${userName}`,
-          password: newPassword,
-        });
+        reply.success(
+          {
+            message: `${userName} registered successfully.`,
+            dashboardUrl: dash.url,
+            username: userName,
+            password: newPassword,
+          },
+          201
+        );
       } catch (error) {
         throw error;
       }
