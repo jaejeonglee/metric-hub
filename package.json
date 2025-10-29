@@ -8,6 +8,7 @@
     "dev": "nodemon app.js"
   },
   "dependencies": {
+    "@fastify/jwt": "^10.0.0",
     "axios": "^1.12.2",
     "dotenv": "^17.2.3",
     "fastify": "^5.6.1",

@@ -1,4 +1,5 @@
 import fp from "fastify-plugin";
+import AppError from "../class/AppError.js";
 
 async function authPlugin(fastify, options) {
   const { config } = options;
@@ -9,13 +10,26 @@ async function authPlugin(fastify, options) {
     const expectedKey = `Bearer ${config.hubApiSecretKey}`;
 
     if (!authHeader || authHeader !== expectedKey) {
-      fastify.log.warn("Unauthorized API Key attempt");
-      reply.status(401).send({ error: "Unauthorized Hub API access" });
+      throw new AppError(
+        "Unauthorized Hub API access (Invalid API Key)",
+        401,
+        "UNAUTHORIZED"
+      );
     }
   };
 
-  // 2. Admin Key
-  const verifyAdmin = async (request, reply) => {};
+  // 2. Admin JWT
+  const verifyAdmin = async (request, reply) => {
+    try {
+      await request.jwtVerify();
+    } catch (err) {
+      throw new AppError(
+        "Unauthorized access (Invalid JWT Token)",
+        401,
+        "UNAUTHORIZED"
+      );
+    }
+  };
 
   fastify.decorate("auth", {
     verifyApiKey,

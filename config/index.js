@@ -15,6 +15,17 @@ const config = {
   // API Key
   hubApiSecretKey: process.env.HUB_API_SECRET_KEY,
 
+  // JWT Settings
+  jwt: {
+    secret: process.env.JWT_SECRET,
+  },
+
+  // Admin Credentials
+  admin: {
+    username: process.env.ADMIN_USER,
+    password: process.env.ADMIN_PASSWORD,
+  },
+
   // Grafana
   grafana: {
     baseUrl: process.env.GRAFANA_BASE_URL,
@@ -40,10 +51,11 @@ const config = {
 if (
   !config.hubApiSecretKey ||
   !config.grafana.adminUser ||
-  !config.grafana.adminPass
+  !config.grafana.adminPass ||
+  !config.jwt.secret
 ) {
   console.error(
-    "CRITICAL ERROR: Missing required config values (KEY, GRAFANA_ADMIN_USER or PASS)."
+    "CRITICAL ERROR: Missing required config values (KEY, GRAFANA_ADMIN, JWT_SECRET)."
   );
   process.exit(1);
 }

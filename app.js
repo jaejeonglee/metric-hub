@@ -6,6 +6,7 @@ import prometheusPlugin from "./plugins/prometheus.js";
 import responseHandlerPlugin from "./plugins/responseHandler.js";
 import loggerPlugin from "./plugins/logger.js";
 import mainRouter from "./routes/index.js";
+import fastifyJwt from "@fastify/jwt";
 
 // Setup instance (Fastify)
 const app = Fastify({
@@ -14,8 +15,12 @@ const app = Fastify({
 });
 
 // Plugin injection
-app.register(responseHandlerPlugin);
+
 app.register(loggerPlugin);
+app.register(responseHandlerPlugin);
+app.register(fastifyJwt, {
+  secret: config.jwt.secret,
+});
 app.register(authPlugin, { config });
 app.register(grafanaPlugin, { config });
 app.register(prometheusPlugin, { config });
