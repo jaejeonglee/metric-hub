@@ -1,5 +1,5 @@
 import AppError from "../class/AppError.js";
-import { sanitizeUserName } from "../utils/userName.js";
+import { sanitizeUserId } from "../utils/userId.js";
 
 export default async function adminRoute(fastify, options) {
   const { config } = options;
@@ -41,32 +41,28 @@ export default async function adminRoute(fastify, options) {
   /*
    * Delete User and Dashboard
    */
-  fastify.delete("/user/:userName", {
+  fastify.delete("/user/:userId", {
     preHandler: [fastify.auth.verifyAdmin],
     handler: async (request, reply) => {
-      const rawUserName = request.params.userName;
-      const userName = sanitizeUserName(rawUserName);
+      const rawUserId = request.params.userId ?? request.params.userName;
+      const userId = sanitizeUserId(rawUserId);
 
-      if (!userName) {
-        throw new AppError(
-          "userName URL parameter is required",
-          400,
-          "VALIDATION_ERROR"
-        );
+      if (!userId) {
+        throw new AppError("Invalid userId format", 400, "VALIDATION_ERROR");
       }
 
       const adminUser = request.user;
       fastify.log.info(
-        `Admin request (by ${adminUser.username}) received to delete user: ${userName}`
+        `Admin request (by ${adminUser.username}) received to delete user: ${userId}`
       );
 
       try {
-        await fastify.grafana.deleteUserAndDashboard(userName);
-        await fastify.prometheus.removeTarget(userName);
+        await fastify.grafana.deleteUserAndDashboard(userId);
+        await fastify.prometheus.removeTarget(userId);
 
         return reply.success(
           {
-            message: `User '${userName}' deleted.`,
+            message: `User '${userId}' deleted.`,
           },
           200
         );

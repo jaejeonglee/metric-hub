@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import { isIP } from "net";
 import AppError from "../class/AppError.js";
-import { sanitizeUserName } from "../utils/userName.js";
+import { sanitizeUserId } from "../utils/userId.js";
 
 export default async function registerRoute(fastify, options) {
   const generatePassword = () => randomBytes(8).toString("hex");
@@ -9,12 +9,18 @@ export default async function registerRoute(fastify, options) {
   fastify.post("/register-node", {
     preHandler: [fastify.auth.verifyApiKey],
     handler: async (request, reply) => {
-      const { ip, port = 9100, userName: rawUserName } = request.body;
+      const {
+        ip,
+        port = 9100,
+        userId: requestUserId,
+        userName: legacyUserName,
+      } = request.body;
 
-      const userName = sanitizeUserName(rawUserName);
+      const rawUserId = requestUserId ?? legacyUserName;
+      const userId = sanitizeUserId(rawUserId);
 
-      if (!userName) {
-        throw new AppError("Invalid userName format", 400, "VALIDATION_ERROR");
+      if (!userId) {
+        throw new AppError("Invalid userId format", 400, "VALIDATION_ERROR");
       }
 
       if (!ip || !isIP(ip)) {
@@ -31,31 +37,33 @@ export default async function registerRoute(fastify, options) {
       }
 
       try {
-        const instanceIdentifier = `${userName}:${portNumber}`;
+        const instanceIdentifier = `${ip}:${portNumber}`;
         const newPassword = generatePassword();
 
         const targetStatus = await fastify.prometheus.addTarget(
-          userName,
+          userId,
           ip,
           portNumber
         );
 
         const newUserId = await fastify.grafana.createUser(
-          userName,
+          userId,
           ip,
           newPassword
         );
         const dash = await fastify.grafana.createDashboard(
-          userName,
+          userId,
+          ip,
           instanceIdentifier
         );
         await fastify.grafana.setDashboardPermissions(dash.uid, newUserId);
 
         reply.success(
           {
-            message: `${userName} registered successfully.`,
+            message: `${userId} registered successfully.`,
             dashboardUrl: dash.url,
-            username: userName,
+            userId: userId,
+            grafanaAlias: ip,
             password: newPassword,
             targetStatus: targetStatus,
           },

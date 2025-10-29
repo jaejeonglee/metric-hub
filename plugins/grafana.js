@@ -29,23 +29,30 @@ async function grafanaPlugin(fastify, options) {
   /*
    * Create grafana user
    */
-  async function createUser(userName, ip, password) {
+  async function createUser(userId, ip, password) {
     try {
       const userResponse = await grafanaApi.post("/api/admin/users", {
-        name: `user-${ip}`,
-        email: `${userName}@host.local`,
-        login: `${userName}`,
+        name: ip,
+        email: `${userId}@host.local`,
+        login: `${userId}`,
         password: password,
         OrgId: 1,
       });
       return userResponse.data.id;
     } catch (err) {
       if (err.response && err.response.status === 412) {
-        fastify.log.warn(`User ${userName} already exists. Finding ID...`);
+        fastify.log.warn(`User ${userId} already exists. Updating profile...`);
         const usersResponse = await grafanaApi.get(
-          `/api/users/lookup?loginOrEmail=${userName}`
+          `/api/users/lookup?loginOrEmail=${userId}`
         );
-        return usersResponse.data.id;
+        const existingUserId = usersResponse.data.id;
+
+        await grafanaApi.put(`/api/users/${existingUserId}`, {
+          name: ip,
+          email: `${userId}@host.local`,
+        });
+
+        return existingUserId;
       }
       throw err;
     }
@@ -54,7 +61,7 @@ async function grafanaPlugin(fastify, options) {
   /*
    * Create grafana dashboard from template
    */
-  async function createDashboard(userName, instanceIdentifier) {
+  async function createDashboard(userId, ip, instanceIdentifier) {
     let templateString = await readFile(config.grafana.templatePath, "utf-8");
 
     templateString = templateString
@@ -62,12 +69,12 @@ async function grafanaPlugin(fastify, options) {
       .replace(/"\$job"/g, `"node_exporter_targets"`);
 
     const dashboardJson = JSON.parse(templateString);
-    const dashboardUid = `host-overview-${userName.replace(
+    const dashboardUid = `host-overview-${userId.replace(
       /[^a-zA-Z0-9-]/g,
       "-"
     )}`;
 
-    dashboardJson.title = `${userName} Dashboard`;
+    dashboardJson.title = `${ip} Dashboard`;
     dashboardJson.uid = dashboardUid;
 
     const dashResponse = await grafanaApi.post("/api/dashboards/db", {
@@ -94,9 +101,9 @@ async function grafanaPlugin(fastify, options) {
   /*
    * Delete user and dashboard
    */
-  async function deleteUserAndDashboard(userName) {
-    const grafanaLogin = userName;
-    const dashboardUid = `host-overview-${userName.replace(
+  async function deleteUserAndDashboard(userId) {
+    const grafanaLogin = userId;
+    const dashboardUid = `host-overview-${userId.replace(
       /[^a-zA-Z0-9-]/g,
       "-"
     )}`;
@@ -106,10 +113,10 @@ async function grafanaPlugin(fastify, options) {
       const userLookup = await grafanaApi.get(
         `/api/users/lookup?loginOrEmail=${grafanaLogin}`
       );
-      const userId = userLookup.data.id;
+      const grafanaUserId = userLookup.data.id;
 
-      fastify.log.info(`Deleting Grafana user ID: ${userId}`);
-      await grafanaApi.delete(`/api/admin/users/${userId}`);
+      fastify.log.info(`Deleting Grafana user ID: ${grafanaUserId}`);
+      await grafanaApi.delete(`/api/admin/users/${grafanaUserId}`);
 
       fastify.log.info(`Deleting Grafana dashboard UID: ${dashboardUid}`);
       await grafanaApi.delete(`/api/dashboards/uid/${dashboardUid}`);
@@ -118,7 +125,7 @@ async function grafanaPlugin(fastify, options) {
     } catch (error) {
       if (error.response && error.response.status === 404) {
         fastify.log.warn(
-          `User or Dashboard for ${userName} not found in Grafana. Already deleted?`
+          `User or Dashboard for ${userId} not found in Grafana. Already deleted?`
         );
         return true;
       }

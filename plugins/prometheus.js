@@ -35,44 +35,52 @@ async function prometheusPlugin(fastify, options) {
   /*
    * Check if target already exists
    */
-  async function doesTargetExist(userName) {
+  async function doesTargetExist(userId) {
     const targetsJson = await loadTargets();
-    return targetsJson.some((target) => target.labels?.hostname === userName);
+    return targetsJson.some((target) => target.labels?.userId === userId);
   }
 
   /*
    * Add or update target in Prometheus targets file
    */
-  async function addTarget(userName, ip, port) {
+  async function addTarget(userId, ip, port) {
     const targetsJson = await loadTargets();
     const targetAddress = `${ip}:${port}`;
 
     const existingIndex = targetsJson.findIndex(
-      (target) => target.labels?.hostname === userName
+      (target) => target.labels?.userId === userId
     );
 
     if (existingIndex === -1) {
       targetsJson.push({
         targets: [targetAddress],
-        labels: { hostname: userName },
+        labels: { hostname: ip, userId },
       });
       await persistTargets(targetsJson);
-      fastify.log.info(`Added ${userName} to Prometheus targets.`);
+      fastify.log.info(`Added ${userId} to Prometheus targets.`);
       return "created";
     }
 
-    const existingTargets = targetsJson[existingIndex].targets || [];
-    if (existingTargets[0] === targetAddress) {
+    const existingTarget = targetsJson[existingIndex];
+    const existingTargets = existingTarget.targets || [];
+    const alreadySameTarget = existingTargets[0] === targetAddress;
+    const alreadySameAlias = existingTarget.labels?.hostname === ip;
+
+    if (alreadySameTarget && alreadySameAlias) {
       fastify.log.info(
-        `${userName} already registered in Prometheus with same target.`
+        `${userId} already registered in Prometheus with same target.`
       );
       return "unchanged";
     }
 
-    targetsJson[existingIndex].targets = [targetAddress];
+    targetsJson[existingIndex] = {
+      ...existingTarget,
+      targets: [targetAddress],
+      labels: { ...(existingTarget.labels || {}), hostname: ip, userId },
+    };
     await persistTargets(targetsJson);
     fastify.log.info(
-      `Updated Prometheus target for ${userName} to ${targetAddress}.`
+      `Updated Prometheus target for ${userId} to ${targetAddress}.`
     );
     return "updated";
   }
@@ -80,20 +88,20 @@ async function prometheusPlugin(fastify, options) {
   /*
    * Remove target from Prometheus targets file
    */
-  async function removeTarget(userName) {
+  async function removeTarget(userId) {
     const targetsJson = await loadTargets();
 
     const newTargetsJson = targetsJson.filter(
-      (target) => target.labels?.hostname !== userName
+      (target) => target.labels?.userId !== userId
     );
 
     if (newTargetsJson.length === targetsJson.length) {
-      fastify.log.warn(`Target ${userName} not found in Prometheus. Skipping.`);
+      fastify.log.warn(`Target ${userId} not found in Prometheus. Skipping.`);
       return;
     }
 
     await persistTargets(newTargetsJson);
-    fastify.log.info(`Removed ${userName} from Prometheus targets.`);
+    fastify.log.info(`Removed ${userId} from Prometheus targets.`);
   }
 }
 
