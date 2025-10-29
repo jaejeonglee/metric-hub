@@ -48,14 +48,22 @@ const config = {
   },
 };
 
-if (
-  !config.hubApiSecretKey ||
-  !config.grafana.adminUser ||
-  !config.grafana.adminPass ||
-  !config.jwt.secret
-) {
+const requiredConfig = [
+  ["HUB_API_SECRET_KEY", config.hubApiSecretKey],
+  ["GRAFANA_BASE_URL", config.grafana.baseUrl],
+  ["GRAFANA_ADMIN_USER", config.grafana.adminUser],
+  ["GRAFANA_ADMIN_PASS", config.grafana.adminPass],
+  ["PROMETHEUS_TARGETS_FILE", config.prometheus.targetsFile],
+  ["JWT_SECRET", config.jwt.secret],
+];
+
+const missingKeys = requiredConfig
+  .filter(([, value]) => !value)
+  .map(([key]) => key);
+
+if (missingKeys.length > 0) {
   console.error(
-    "CRITICAL ERROR: Missing required config values (KEY, GRAFANA_ADMIN, JWT_SECRET)."
+    `CRITICAL ERROR: Missing required config values (${missingKeys.join(", ")}).`
   );
   process.exit(1);
 }
