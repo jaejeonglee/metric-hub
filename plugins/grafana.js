@@ -41,18 +41,12 @@ async function grafanaPlugin(fastify, options) {
       return userResponse.data.id;
     } catch (err) {
       if (err.response && err.response.status === 412) {
-        fastify.log.warn(`User ${userId} already exists. Updating profile...`);
-        const usersResponse = await grafanaApi.get(
-          `/api/users/lookup?loginOrEmail=${userId}`
+        fastify.log.warn(`User ${userId} already exists in Grafana (412).`);
+        throw new AppError(
+          `User ${userId} already exists in Grafana`,
+          409,
+          "CONFLICT_GRAFANA_USER"
         );
-        const existingUserId = usersResponse.data.id;
-
-        await grafanaApi.put(`/api/users/${existingUserId}`, {
-          name: ip,
-          email: `${userId}@host.local`,
-        });
-
-        return existingUserId;
       }
       throw err;
     }

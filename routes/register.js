@@ -44,11 +44,7 @@ export default async function registerRoute(fastify, options) {
         const instanceIdentifier = `${ip}:${portNumber}`;
         const newPassword = generatePassword();
 
-        const targetStatus = await fastify.prometheus.addTarget(
-          userId,
-          ip,
-          portNumber
-        );
+        await fastify.prometheus.addTarget(userId, ip, portNumber);
 
         const newUserId = await fastify.grafana.createUser(
           userId,
@@ -70,7 +66,6 @@ export default async function registerRoute(fastify, options) {
             userId: userId,
             grafanaAlias: ip,
             password: newPassword,
-            targetStatus: targetStatus,
           },
           201
         );

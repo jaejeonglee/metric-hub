@@ -47,42 +47,13 @@ async function prometheusPlugin(fastify, options) {
     const targetsJson = await loadTargets();
     const targetAddress = `${ip}:${port}`;
 
-    const existingIndex = targetsJson.findIndex(
-      (target) => target.labels?.userId === userId
-    );
-
-    if (existingIndex === -1) {
-      targetsJson.push({
-        targets: [targetAddress],
-        labels: { hostname: ip, userId },
-      });
-      await persistTargets(targetsJson);
-      fastify.log.info(`Added ${userId} to Prometheus targets.`);
-      return "created";
-    }
-
-    const existingTarget = targetsJson[existingIndex];
-    const existingTargets = existingTarget.targets || [];
-    const alreadySameTarget = existingTargets[0] === targetAddress;
-    const alreadySameAlias = existingTarget.labels?.hostname === ip;
-
-    if (alreadySameTarget && alreadySameAlias) {
-      fastify.log.info(
-        `${userId} already registered in Prometheus with same target.`
-      );
-      return "unchanged";
-    }
-
-    targetsJson[existingIndex] = {
-      ...existingTarget,
+    targetsJson.push({
       targets: [targetAddress],
-      labels: { ...(existingTarget.labels || {}), hostname: ip, userId },
-    };
+      labels: { hostname: ip, userId },
+    });
+
     await persistTargets(targetsJson);
-    fastify.log.info(
-      `Updated Prometheus target for ${userId} to ${targetAddress}.`
-    );
-    return "updated";
+    fastify.log.info(`Added ${userId} to Prometheus targets.`);
   }
 
   /*
