@@ -9,14 +9,9 @@ export default async function registerRoute(fastify, options) {
   fastify.post("/register-node", {
     preHandler: [fastify.auth.verifyApiKey],
     handler: async (request, reply) => {
-      const {
-        ip,
-        port = 9100,
-        userId: requestUserId,
-        userName: legacyUserName,
-      } = request.body;
+      const { ip, port = 9100, userId: requestUserId } = request.body;
 
-      const rawUserId = requestUserId ?? legacyUserName;
+      const rawUserId = requestUserId;
       const userId = sanitizeUserId(rawUserId);
 
       if (!userId) {
@@ -37,6 +32,15 @@ export default async function registerRoute(fastify, options) {
       }
 
       try {
+        const isExist = await fastify.prometheus.doesTargetExist(userId);
+        if (isExist) {
+          throw new AppError(
+            `User ID ${userId} is already registered`,
+            409,
+            "CONFLICT"
+          );
+        }
+
         const instanceIdentifier = `${ip}:${portNumber}`;
         const newPassword = generatePassword();
 
@@ -51,6 +55,7 @@ export default async function registerRoute(fastify, options) {
           ip,
           newPassword
         );
+
         const dash = await fastify.grafana.createDashboard(
           userId,
           ip,
