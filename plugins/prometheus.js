@@ -49,7 +49,7 @@ async function prometheusPlugin(fastify, options) {
 
     targetsJson.push({
       targets: [targetAddress],
-      labels: { hostname: ip, userId },
+      labels: { hostname: ip, userId, instance: targetAddress },
     });
 
     await persistTargets(targetsJson);
